@@ -24,6 +24,7 @@ use std::{
     ops::Not,
     path::{Path, PathBuf},
     sync::Arc,
+    vec,
 };
 use sum_tree::Bias;
 use text::{Point, Rope};
@@ -472,20 +473,28 @@ impl LanguageRegistry {
         user_file_types: Option<&HashMap<Arc<str>, Vec<String>>>,
     ) -> impl Future<Output = Result<Arc<Language>>> {
         let filename = path.file_name().and_then(|name| name.to_str());
-        let extension = path.extension_or_hidden_file_name();
-        let path_suffixes = [extension, filename];
+        let extensions = path.get_all_extensions_or_hidden_file_name();
+
+        let mut path_suffixes = Vec::new();
+        if let Some(name) = filename {
+            path_suffixes.push(name);
+        }
+        if let Some(extensions) = extensions {
+            path_suffixes.extend(extensions);
+        }
+
         let empty = Vec::new();
 
         let rx = self.get_or_load_language(move |language_name, config| {
             let path_matches_default_suffix = config
                 .path_suffixes
                 .iter()
-                .any(|suffix| path_suffixes.contains(&Some(suffix.as_str())));
+                .any(|suffix| path_suffixes.contains(&suffix.as_str()));
             let path_matches_custom_suffix = user_file_types
                 .and_then(|types| types.get(language_name))
                 .unwrap_or(&empty)
                 .iter()
-                .any(|suffix| path_suffixes.contains(&Some(suffix.as_str())));
+                .any(|suffix| path_suffixes.contains(&suffix.as_str()));
             let content_matches = content.zip(config.first_line_pattern.as_ref()).map_or(
                 false,
                 |(content, pattern)| {

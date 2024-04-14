@@ -77,6 +77,7 @@ pub trait PathExt {
     fn compact(&self) -> PathBuf;
     fn icon_stem_or_suffix(&self) -> Option<&str>;
     fn extension_or_hidden_file_name(&self) -> Option<&str>;
+    fn get_all_extensions_or_hidden_file_name(&self) -> Option<Vec<&str>>;
     fn try_from_bytes<'a>(bytes: &'a [u8]) -> anyhow::Result<Self>
     where
         Self: From<&'a Path>,
@@ -147,6 +148,14 @@ impl<T: AsRef<Path>> PathExt for T {
         }
 
         self.as_ref().file_name()?.to_str()?.split('.').last()
+    }
+
+    fn get_all_extensions_or_hidden_file_name(&self) -> Option<Vec<&str>> {
+        if let Some(extension) = self.as_ref().extension() {
+            return extension.to_str().map(|ext| vec![ext]);
+        }
+
+        Some(self.as_ref().file_name()?.to_str()?.split('.').collect())
     }
 }
 
