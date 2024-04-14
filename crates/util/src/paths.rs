@@ -155,7 +155,8 @@ impl<T: AsRef<Path>> PathExt for T {
             return extension.to_str().map(|ext| vec![ext]);
         }
 
-        Some(self.as_ref().file_name()?.to_str()?.split('.').collect())
+        let from_first_dot = self.as_ref().file_name()?.to_str()?.strip_prefix(".")?;
+        Some(from_first_dot.split('.').filter(|x| *x != "").collect())
     }
 }
 
@@ -486,6 +487,50 @@ mod tests {
         // Hidden file, with extension
         let path = Path::new("/a/b/c/.eslintrc.js");
         assert_eq!(path.extension_or_hidden_file_name(), Some("js"));
+    }
+
+    #[test]
+    fn test_get_all_extensions_or_hidden_file_name() {
+        // No dots in name
+        let path = Path::new("/a/b/c/file_name.rs");
+        assert_eq!(
+            path.get_all_extensions_or_hidden_file_name(),
+            Some(vec!["rs"])
+        );
+
+        // Single dot in name
+        let path = Path::new("/a/b/c/file.name.rs");
+        assert_eq!(
+            path.get_all_extensions_or_hidden_file_name(),
+            Some(vec!["rs"])
+        );
+
+        // Multiple dots in name
+        let path = Path::new("/a/b/c/long.file.name.rs");
+        assert_eq!(
+            path.get_all_extensions_or_hidden_file_name(),
+            Some(vec!["rs"])
+        );
+
+        // Hidden file, no extension
+        let path = Path::new("/a/b/c/.gitignore");
+        assert_eq!(
+            path.get_all_extensions_or_hidden_file_name(),
+            Some(vec!["gitignore"])
+        );
+
+        // Hidden file, with extension
+        let path = Path::new("/a/b/c/.eslintrc.js");
+        assert_eq!(
+            path.get_all_extensions_or_hidden_file_name(),
+            Some(vec!["js"])
+        );
+
+        let path = Path::new("/a/b/c/.env.local");
+        assert_eq!(
+            path.get_all_extensions_or_hidden_file_name(),
+            Some(vec!["env", "local"])
+        );
     }
 
     #[test]
