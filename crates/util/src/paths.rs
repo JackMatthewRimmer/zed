@@ -76,7 +76,7 @@ lazy_static::lazy_static! {
 pub trait PathExt {
     fn compact(&self) -> PathBuf;
     fn icon_stem_or_suffix(&self) -> Option<&str>;
-    fn get_all_extensions_or_hidden_file_name(&self) -> Option<Vec<&str>>;
+    fn get_all_extensions_or_hidden_file_name<'a>(&self) -> Option<Vec<String>>;
     fn try_from_bytes<'a>(bytes: &'a [u8]) -> anyhow::Result<Self>
     where
         Self: From<&'a Path>,
@@ -140,15 +140,19 @@ impl<T: AsRef<Path>> PathExt for T {
             .or_else(|| path.file_stem()?.to_str())
     }
 
-    fn get_all_extensions_or_hidden_file_name(&self) -> Option<Vec<&str>> {
-        Some(
-            self.as_ref()
-                .file_name()?
-                .to_str()?
-                .split(".")
-                .filter(|x| *x != "")
-                .collect(),
-        )
+    fn get_all_extensions_or_hidden_file_name(&self) -> Option<Vec<String>> {
+        let file_name = self.as_ref().file_name()?.to_str()?;
+        let split: Vec<&str> = file_name.split('.').filter(|x| *x != "").collect();
+        let mut vec: Vec<String> = Vec::new();
+
+        for (i, item) in split.iter().enumerate() {
+            if i == 0 && file_name.starts_with('.') {
+                vec.push(format!(".{}", *item));
+            } else {
+                vec.push(item.to_string());
+            }
+        }
+        Some(vec)
     }
 }
 
@@ -464,41 +468,41 @@ mod tests {
         let path = Path::new("/a/b/c/file_name.rs");
         assert_eq!(
             path.get_all_extensions_or_hidden_file_name(),
-            Some(vec!["file_name", "rs"])
+            Some(vec!["file_name".into(), "rs".into()])
         );
 
         // Single dot in name
         let path = Path::new("/a/b/c/file.name.rs");
         assert_eq!(
             path.get_all_extensions_or_hidden_file_name(),
-            Some(vec!["file", "name", "rs"])
+            Some(vec!["file".into(), "name".into(), "rs".into()])
         );
 
         // Multiple dots in name
         let path = Path::new("/a/b/c/Dockerfile.prod");
         assert_eq!(
             path.get_all_extensions_or_hidden_file_name(),
-            Some(vec!["Dockerfile", "prod"])
+            Some(vec!["Dockerfile".into(), "prod".into()])
         );
 
         // Hidden file, no extension
         let path = Path::new("/a/b/c/.gitignore");
         assert_eq!(
             path.get_all_extensions_or_hidden_file_name(),
-            Some(vec!["gitignore"])
+            Some(vec![".gitignore".into()])
         );
 
         // Hidden file, with extension
         let path = Path::new("/a/b/c/.eslintrc.js");
         assert_eq!(
             path.get_all_extensions_or_hidden_file_name(),
-            Some(vec!["eslintrc", "js"])
+            Some(vec![".eslintrc".into(), "js".into()])
         );
 
         let path = Path::new("/a/b/c/.env.local");
         assert_eq!(
             path.get_all_extensions_or_hidden_file_name(),
-            Some(vec!["env", "local"])
+            Some(vec![".env".into(), "local".into()])
         );
     }
 
