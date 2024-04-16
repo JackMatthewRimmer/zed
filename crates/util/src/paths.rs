@@ -76,7 +76,6 @@ lazy_static::lazy_static! {
 pub trait PathExt {
     fn compact(&self) -> PathBuf;
     fn icon_stem_or_suffix(&self) -> Option<&str>;
-    fn extension_or_hidden_file_name(&self) -> Option<&str>;
     fn get_all_extensions_or_hidden_file_name(&self) -> Option<Vec<&str>>;
     fn try_from_bytes<'a>(bytes: &'a [u8]) -> anyhow::Result<Self>
     where
@@ -141,22 +140,15 @@ impl<T: AsRef<Path>> PathExt for T {
             .or_else(|| path.file_stem()?.to_str())
     }
 
-    /// Returns a file's extension or, if the file is hidden, its name without the leading dot
-    fn extension_or_hidden_file_name(&self) -> Option<&str> {
-        if let Some(extension) = self.as_ref().extension() {
-            return extension.to_str();
-        }
-
-        self.as_ref().file_name()?.to_str()?.split('.').last()
-    }
-
     fn get_all_extensions_or_hidden_file_name(&self) -> Option<Vec<&str>> {
-        if let Some(extension) = self.as_ref().extension() {
-            return extension.to_str().map(|ext| vec![ext]);
-        }
-
-        let from_first_dot = self.as_ref().file_name()?.to_str()?.strip_prefix(".")?;
-        Some(from_first_dot.split('.').filter(|x| *x != "").collect())
+        Some(
+            self.as_ref()
+                .file_name()?
+                .to_str()?
+                .split(".")
+                .filter(|x| *x != "")
+                .collect(),
+        )
     }
 }
 
@@ -467,49 +459,26 @@ mod tests {
     }
 
     #[test]
-    fn test_extension_or_hidden_file_name() {
-        // No dots in name
-        let path = Path::new("/a/b/c/file_name.rs");
-        assert_eq!(path.extension_or_hidden_file_name(), Some("rs"));
-
-        // Single dot in name
-        let path = Path::new("/a/b/c/file.name.rs");
-        assert_eq!(path.extension_or_hidden_file_name(), Some("rs"));
-
-        // Multiple dots in name
-        let path = Path::new("/a/b/c/long.file.name.rs");
-        assert_eq!(path.extension_or_hidden_file_name(), Some("rs"));
-
-        // Hidden file, no extension
-        let path = Path::new("/a/b/c/.gitignore");
-        assert_eq!(path.extension_or_hidden_file_name(), Some("gitignore"));
-
-        // Hidden file, with extension
-        let path = Path::new("/a/b/c/.eslintrc.js");
-        assert_eq!(path.extension_or_hidden_file_name(), Some("js"));
-    }
-
-    #[test]
     fn test_get_all_extensions_or_hidden_file_name() {
         // No dots in name
         let path = Path::new("/a/b/c/file_name.rs");
         assert_eq!(
             path.get_all_extensions_or_hidden_file_name(),
-            Some(vec!["rs"])
+            Some(vec!["file_name", "rs"])
         );
 
         // Single dot in name
         let path = Path::new("/a/b/c/file.name.rs");
         assert_eq!(
             path.get_all_extensions_or_hidden_file_name(),
-            Some(vec!["rs"])
+            Some(vec!["file", "name", "rs"])
         );
 
         // Multiple dots in name
-        let path = Path::new("/a/b/c/long.file.name.rs");
+        let path = Path::new("/a/b/c/Dockerfile.prod");
         assert_eq!(
             path.get_all_extensions_or_hidden_file_name(),
-            Some(vec!["rs"])
+            Some(vec!["Dockerfile", "prod"])
         );
 
         // Hidden file, no extension
@@ -523,7 +492,7 @@ mod tests {
         let path = Path::new("/a/b/c/.eslintrc.js");
         assert_eq!(
             path.get_all_extensions_or_hidden_file_name(),
-            Some(vec!["js"])
+            Some(vec!["eslintrc", "js"])
         );
 
         let path = Path::new("/a/b/c/.env.local");

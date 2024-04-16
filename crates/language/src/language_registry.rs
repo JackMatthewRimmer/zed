@@ -472,29 +472,20 @@ impl LanguageRegistry {
         content: Option<&Rope>,
         user_file_types: Option<&HashMap<Arc<str>, Vec<String>>>,
     ) -> impl Future<Output = Result<Arc<Language>>> {
-        let filename = path.file_name().and_then(|name| name.to_str());
-        let extensions = path.get_all_extensions_or_hidden_file_name();
-
-        let mut path_suffixes = Vec::new();
-        if let Some(name) = filename {
-            path_suffixes.push(name);
-        }
-        if let Some(extensions) = extensions {
-            path_suffixes.extend(extensions);
-        }
-
         let empty = Vec::new();
-
+        let extensions = path
+            .get_all_extensions_or_hidden_file_name()
+            .unwrap_or(vec![]);
         let rx = self.get_or_load_language(move |language_name, config| {
             let path_matches_default_suffix = config
                 .path_suffixes
                 .iter()
-                .any(|suffix| path_suffixes.contains(&suffix.as_str()));
+                .any(|suffix| extensions.contains(&suffix.as_str()));
             let path_matches_custom_suffix = user_file_types
                 .and_then(|types| types.get(language_name))
                 .unwrap_or(&empty)
                 .iter()
-                .any(|suffix| path_suffixes.contains(&suffix.as_str()));
+                .any(|suffix| extensions.contains(&suffix.as_str()));
             let content_matches = content.zip(config.first_line_pattern.as_ref()).map_or(
                 false,
                 |(content, pattern)| {
